@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UK Retirement Simulation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>UK Pension Simulation</h1>
+    <p class="subtitle">Find out when you can stop contributing and still hit your target by retirement.</p>
+
+    <form id="pension-form">
+      <div class="form-grid">
+        <div class="form-section">
+          <h2>About You</h2>
+          <label>
+            Current Age
+            <input type="number" id="currentAge" value="30" min="18" max="70" required>
+          </label>
+          <label>
+            Target Retirement Age
+            <input type="number" id="retirementAge" value="58" min="40" max="75" required>
+          </label>
+        </div>
+
+        <div class="form-section">
+          <h2>Current Pension</h2>
+          <label>
+            Current Pension Pot (&pound;)
+            <input type="number" id="currentPot" value="50000" min="0" step="1000" required>
+          </label>
+          <label>
+            Annual Salary (&pound;)
+            <input type="number" id="salary" value="60000" min="0" step="1000" required>
+          </label>
+          <label>
+            Your Contribution (% of salary)
+            <input type="number" id="employeeContrib" value="5" min="0" max="100" step="0.5" required>
+          </label>
+          <label>
+            Employer Contribution (% of salary)
+            <input type="number" id="employerContrib" value="3" min="0" max="100" step="0.5" required>
+          </label>
+        </div>
+
+        <div class="form-section">
+          <h2>Assumptions</h2>
+          <label>
+            Expected Annual Growth (%)
+            <input type="number" id="growthRate" value="5" min="0" max="20" step="0.5" required>
+            <span class="hint">Typical UK pension: 4-7% nominal</span>
+          </label>
+          <label>
+            Annual Salary Increase (%)
+            <input type="number" id="salaryGrowth" value="2" min="0" max="15" step="0.5" required>
+          </label>
+          <label>
+            Target Pension Pot (&pound;)
+            <input type="number" id="targetPot" value="500000" min="0" step="10000" required>
+            <span class="hint">How much you want at retirement</span>
+          </label>
+        </div>
+      </div>
+
+      <button type="submit">Run Simulation</button>
+    </form>
+
+    <div id="results" class="results hidden">
+      <h2>Results</h2>
+      <div class="results-summary" id="results-summary"></div>
+      <div class="chart-container">
+        <canvas id="chart"></canvas>
+      </div>
+      <div class="table-container">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>Age</th>
+              <th>Year</th>
+              <th>Pot (with contributions)</th>
+              <th>Pot (growth only)</th>
+              <th>Annual Contribution</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="simulation.js"></script>
+</body>
+</html>

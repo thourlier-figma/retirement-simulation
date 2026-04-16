@@ -1,0 +1,18 @@
+{
+  "name": "retirement-simulation",
+  "version": "1.0.0",
+  "description": "",
+  "main": "simulation.js",
+  "scripts": {
+    "dev": "vite --port 5555",
+    "build": "vite build",
+    "preview": "vite preview --port 5555"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "vite": "^8.0.8"
+  }
+}
