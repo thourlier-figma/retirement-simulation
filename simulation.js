@@ -98,7 +98,7 @@ function runSimulation() {
     ? simulateDrawdown(inputs, stopPath[stopPath.length - 1].pot)
     : null;
 
-  renderSummary(inputs, withContrib, stopAge, drawdownFromContrib);
+  renderSummary(inputs, withContrib, stopAge, drawdownFromContrib, drawdownFromStop);
   renderChart(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
   renderTable(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
   resultsEl.classList.remove('hidden');
@@ -220,7 +220,7 @@ function simulateDrawdown(inputs, potAtRetirement) {
   return rows;
 }
 
-function renderSummary(inputs, withContrib, stopAge, drawdown) {
+function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownStop) {
   const finalPot = withContrib[withContrib.length - 1].pot;
   const totalContributed = withContrib.reduce((s, r) => s + r.contribution, 0);
 
@@ -257,26 +257,37 @@ function renderSummary(inputs, withContrib, stopAge, drawdown) {
     </p>
   `;
 
-  // Drawdown summary
+  // Drawdown summaries
+  const spendingNote = `spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%`;
+
+  // Show stop-contributing drawdown first (the recommended plan) if available
+  if (drawdownStop) {
+    html += drawdownSummaryHtml('If you stop contributing', drawdownStop, inputs, spendingNote);
+  }
+  // Then show continuous-contributions drawdown
+  html += drawdownSummaryHtml(
+    drawdownStop ? 'If you keep contributing' : 'Drawdown',
+    drawdownContrib, inputs, spendingNote
+  );
+
+  summaryEl.innerHTML = html;
+}
+
+function drawdownSummaryHtml(label, drawdown, inputs, spendingNote) {
   const depletedRow = drawdown.find(r => r.depleted);
   if (depletedRow) {
-    html += `
+    return `
       <p class="detail" style="margin-top: 0.75rem; color: #c45500; font-weight: 600;">
-        Pot runs out at age ${depletedRow.age}
-        (spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%).
-      </p>
-    `;
-  } else {
-    const lastDrawdown = drawdown[drawdown.length - 1];
-    html += `
-      <p class="detail" style="margin-top: 0.75rem; color: #1a8917; font-weight: 600;">
-        Pot lasts beyond age ${inputs.endAge} &mdash; ${fmt(lastDrawdown.pot)} remaining
-        (spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%).
+        ${label}: pot runs out at age ${depletedRow.age} (${spendingNote}).
       </p>
     `;
   }
-
-  summaryEl.innerHTML = html;
+  const lastRow = drawdown[drawdown.length - 1];
+  return `
+    <p class="detail" style="margin-top: 0.75rem; color: #1a8917; font-weight: 600;">
+      ${label}: pot lasts beyond age ${inputs.endAge} &mdash; ${fmt(lastRow.pot)} remaining (${spendingNote}).
+    </p>
+  `;
 }
 
 function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, drawdownStop) {
