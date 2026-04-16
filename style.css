@@ -38,7 +38,7 @@ h2 {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(4, 1fr);
   gap: 2rem;
   margin-bottom: 2rem;
 }
@@ -197,5 +197,10 @@ tr.stop-row {
 
 tr.retirement-row {
   background: #e3f2fd;
+  font-weight: 600;
+}
+
+tr.depleted-row {
+  background: #fce4ec;
   font-weight: 600;
 }
