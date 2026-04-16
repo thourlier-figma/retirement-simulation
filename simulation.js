@@ -1,3 +1,6 @@
+document.getElementById('current-date').textContent =
+  new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
 const form = document.getElementById('pension-form');
 const resultsEl = document.getElementById('results');
 const summaryEl = document.getElementById('results-summary');

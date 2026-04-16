@@ -17,6 +17,20 @@ body {
   padding: 2rem 1.5rem;
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+}
+
+.current-date {
+  color: #6e6e73;
+  font-size: 0.9rem;
+  white-space: nowrap;
+  padding-top: 0.5rem;
+}
+
 h1 {
   font-size: 2rem;
   font-weight: 700;
@@ -25,7 +39,7 @@ h1 {
 
 .subtitle {
   color: #6e6e73;
-  margin-bottom: 2rem;
+  margin-bottom: 0;
 }
 
 h2 {
