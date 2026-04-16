@@ -4,6 +4,39 @@ const summaryEl = document.getElementById('results-summary');
 const tableBody = document.querySelector('#results-table tbody');
 let chart = null;
 
+const STORAGE_KEY = 'pension-sim-settings';
+const INPUT_IDS = [
+  'currentAge', 'retirementAge', 'currentPot', 'salary',
+  'employeeContrib', 'employerContrib', 'growthRate', 'salaryGrowth', 'targetPot',
+];
+
+function saveSettings() {
+  const settings = {};
+  for (const id of INPUT_IDS) {
+    settings[id] = document.getElementById(id).value;
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+}
+
+function loadSettings() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const settings = JSON.parse(raw);
+    for (const id of INPUT_IDS) {
+      if (settings[id] !== undefined) {
+        document.getElementById(id).value = settings[id];
+      }
+    }
+  } catch { /* ignore corrupted data */ }
+}
+
+loadSettings();
+
+for (const id of INPUT_IDS) {
+  document.getElementById(id).addEventListener('input', saveSettings);
+}
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   runSimulation();
