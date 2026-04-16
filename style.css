@@ -199,3 +199,8 @@ tr.retirement-row {
   background: #e3f2fd;
   font-weight: 600;
 }
+
+tr.depleted-row {
+  background: #fce4ec;
+  font-weight: 600;
+}
