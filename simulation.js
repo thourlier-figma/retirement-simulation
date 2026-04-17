@@ -1,3 +1,11 @@
+// Clock
+const clockEl = document.getElementById('clock');
+function updateClock() {
+  clockEl.textContent = new Date().toLocaleTimeString('en-GB');
+}
+updateClock();
+setInterval(updateClock, 1000);
+
 const form = document.getElementById('pension-form');
 const resultsEl = document.getElementById('results');
 const summaryEl = document.getElementById('results-summary');

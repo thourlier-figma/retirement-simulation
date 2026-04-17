@@ -11,6 +11,17 @@ body {
   line-height: 1.6;
 }
 
+.clock {
+  position: fixed;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #6e6e73;
+  font-variant-numeric: tabular-nums;
+  z-index: 100;
+}
+
 .container {
   max-width: 960px;
   margin: 0 auto;
