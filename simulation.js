@@ -231,9 +231,16 @@ function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownSt
   if (stopAge !== null) {
     const yearsContributing = stopAge - inputs.currentAge;
     html += `
-      <p class="headline success">
-        You can stop contributing at age <span class="stop-age-highlight">${stopAge}</span>
-      </p>
+      <div class="summary-ages">
+        <div class="summary-age-item">
+          <span class="summary-age-label">Stop contributing</span>
+          <span class="stop-age-highlight">${stopAge}</span>
+        </div>
+        <div class="summary-age-item">
+          <span class="summary-age-label">Target retirement</span>
+          <span class="stop-age-highlight retirement">${inputs.retirementAge}</span>
+        </div>
+      </div>
       <p class="detail">
         That's ${yearsContributing} more year${yearsContributing !== 1 ? 's' : ''} of contributions.
         After that, passive growth at ${(inputs.growthRate * 100).toFixed(1)}% will carry
@@ -242,6 +249,12 @@ function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownSt
     `;
   } else {
     html += `
+      <div class="summary-ages">
+        <div class="summary-age-item">
+          <span class="summary-age-label">Target retirement</span>
+          <span class="stop-age-highlight retirement">${inputs.retirementAge}</span>
+        </div>
+      </div>
       <p class="headline warning">
         You won't reach ${fmt(inputs.targetPot)} by age ${inputs.retirementAge} even with continuous contributions.
       </p>
