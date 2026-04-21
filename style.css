@@ -443,9 +443,9 @@ button[type="submit"] svg {
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
 }
 
-.stop-age-highlight.retirement {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+.stop-age-highlight.burn {
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
 }
 
 /* ── Stat cards ───────────────────────────────── */
