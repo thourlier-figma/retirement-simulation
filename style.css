@@ -254,14 +254,6 @@ label {
   right: 0.75rem;
 }
 
-.input-with-prefix input {
-  padding-left: 1.85rem;
-}
-
-.input-with-suffix input {
-  padding-right: 1.8rem;
-}
-
 input[type="number"] {
   display: block;
   width: 100%;
@@ -292,6 +284,14 @@ input[type="number"]:focus {
   border-color: var(--blue);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.input-with-prefix input {
+  padding-left: 1.85rem;
+}
+
+.input-with-suffix input {
+  padding-right: 1.8rem;
 }
 
 .hint {
