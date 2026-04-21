@@ -94,13 +94,16 @@ function runSimulation() {
     ? simulateStopAt(inputs, yearsToRetirement, stopAge)
     : null;
 
+  // Find ideal retirement age: earliest age where pot sustains burn rate until endAge
+  const idealRetirementAge = findIdealRetirementAge(inputs);
+
   // Simulate drawdown phase (retirement to end age)
   const drawdownFromContrib = simulateDrawdown(inputs, withContrib[withContrib.length - 1].pot);
   const drawdownFromStop = stopPath
     ? simulateDrawdown(inputs, stopPath[stopPath.length - 1].pot)
     : null;
 
-  renderSummary(inputs, withContrib, stopAge, drawdownFromContrib, drawdownFromStop);
+  renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdownFromContrib, drawdownFromStop);
   renderChart(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
   renderTable(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
   resultsEl.classList.remove('hidden');
@@ -147,6 +150,32 @@ function findStopAge(inputs, yearsToRetirement) {
     }
   }
   return null; // Can't reach target even with contributions the whole way
+}
+
+// Find earliest retirement age where the pot lasts until endAge given burn rate
+function findIdealRetirementAge(inputs) {
+  // Try each possible retirement age from current age + 1 up to endAge - 1
+  for (let retAge = inputs.currentAge + 1; retAge < inputs.endAge; retAge++) {
+    const yearsContributing = retAge - inputs.currentAge;
+    const potAtRetirement = getPotAtYear(inputs, yearsContributing);
+
+    // Simulate drawdown from this retirement age to endAge
+    let pot = potAtRetirement;
+    let spending = inputs.annualSpending;
+    let survives = true;
+
+    for (let y = 1; y <= inputs.endAge - retAge; y++) {
+      pot = pot * (1 + inputs.growthRate) - spending;
+      spending = spending * (1 + inputs.spendingInflation);
+      if (pot <= 0) {
+        survives = false;
+        break;
+      }
+    }
+
+    if (survives) return retAge;
+  }
+  return null;
 }
 
 // Get pot value at a given year offset (with contributions up to that point)
@@ -222,25 +251,36 @@ function simulateDrawdown(inputs, potAtRetirement) {
   return rows;
 }
 
-function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownStop) {
+function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdownContrib, drawdownStop) {
   const finalPot = withContrib[withContrib.length - 1].pot;
   const totalContributed = withContrib.reduce((s, r) => s + r.contribution, 0);
 
-  let html = '';
+  let html = '<div class="summary-ages">';
 
   if (stopAge !== null) {
     const yearsContributing = stopAge - inputs.currentAge;
     html += `
-      <div class="summary-ages">
         <div class="summary-age-item">
           <span class="summary-age-label">Stop contributing</span>
           <span class="stop-age-highlight">${stopAge}</span>
         </div>
+    `;
+  }
+
+  if (idealRetirementAge !== null) {
+    html += `
         <div class="summary-age-item">
-          <span class="summary-age-label">Target retirement</span>
-          <span class="stop-age-highlight retirement">${inputs.retirementAge}</span>
+          <span class="summary-age-label">Ideal retirement</span>
+          <span class="stop-age-highlight retirement">${idealRetirementAge}</span>
         </div>
-      </div>
+    `;
+  }
+
+  html += '</div>';
+
+  if (stopAge !== null) {
+    const yearsContributing = stopAge - inputs.currentAge;
+    html += `
       <p class="detail">
         That's ${yearsContributing} more year${yearsContributing !== 1 ? 's' : ''} of contributions.
         After that, passive growth at ${(inputs.growthRate * 100).toFixed(1)}% will carry
@@ -249,18 +289,27 @@ function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownSt
     `;
   } else {
     html += `
-      <div class="summary-ages">
-        <div class="summary-age-item">
-          <span class="summary-age-label">Target retirement</span>
-          <span class="stop-age-highlight retirement">${inputs.retirementAge}</span>
-        </div>
-      </div>
       <p class="headline warning">
         You won't reach ${fmt(inputs.targetPot)} by age ${inputs.retirementAge} even with continuous contributions.
       </p>
       <p class="detail">
         With current inputs, your pot would reach ${fmt(finalPot)} at retirement.
         Consider increasing contributions, adjusting your target, or pushing retirement age back.
+      </p>
+    `;
+  }
+
+  if (idealRetirementAge !== null) {
+    html += `
+      <p class="detail">
+        If you keep contributing until age ${idealRetirementAge}, your pot will sustain
+        ${fmt(inputs.annualSpending)}/year (with ${(inputs.spendingInflation * 100).toFixed(1)}% inflation) through age ${inputs.endAge}.
+      </p>
+    `;
+  } else {
+    html += `
+      <p class="detail" style="color: #fca5a5;">
+        Even contributing until age ${inputs.endAge - 1}, your pot can't sustain ${fmt(inputs.annualSpending)}/year through age ${inputs.endAge}.
       </p>
     `;
   }
