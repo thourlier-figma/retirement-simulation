@@ -94,18 +94,28 @@ function runSimulation() {
     ? simulateStopAt(inputs, yearsToRetirement, stopAge)
     : null;
 
-  // Find ideal retirement age: earliest age where pot sustains burn rate until endAge
+  // Find ideal retirement age: earliest age where pot hits £0 at endAge
   const idealRetirementAge = findIdealRetirementAge(inputs);
 
-  // Simulate drawdown phase (retirement to end age)
-  const drawdownFromContrib = simulateDrawdown(inputs, withContrib[withContrib.length - 1].pot);
-  const drawdownFromStop = stopPath
-    ? simulateDrawdown(inputs, stopPath[stopPath.length - 1].pot)
+  // Simulate drawdown from the target retirement age (user's input)
+  const drawdownFromTarget = simulateDrawdown(inputs, inputs.retirementAge, withContrib[withContrib.length - 1].pot);
+
+  // Simulate drawdown from the ideal retirement age
+  const idealPotAtRetirement = idealRetirementAge !== null
+    ? getPotAtYear(inputs, idealRetirementAge - inputs.currentAge)
+    : null;
+  const drawdownFromIdeal = idealRetirementAge !== null
+    ? simulateDrawdown(inputs, idealRetirementAge, idealPotAtRetirement)
     : null;
 
-  renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdownFromContrib, drawdownFromStop);
-  renderChart(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
-  renderTable(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
+  // Accumulation path for ideal scenario (contribute until ideal retirement)
+  const idealAccum = idealRetirementAge !== null
+    ? simulateWithContributions(inputs, idealRetirementAge - inputs.currentAge)
+    : null;
+
+  renderSummary(inputs, withContrib, stopAge, idealRetirementAge, idealPotAtRetirement, drawdownFromTarget, drawdownFromIdeal);
+  renderChart(inputs, withContrib, stopPath, stopAge, idealAccum, drawdownFromTarget, drawdownFromIdeal, idealRetirementAge);
+  renderTable(inputs, withContrib, stopPath, stopAge, idealAccum, drawdownFromTarget, drawdownFromIdeal, idealRetirementAge);
   resultsEl.classList.remove('hidden');
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -223,17 +233,17 @@ function simulateStopAt(inputs, years, stopAge) {
   return rows;
 }
 
-// Simulate drawdown phase from retirement to endAge
-function simulateDrawdown(inputs, potAtRetirement) {
-  const years = inputs.endAge - inputs.retirementAge;
+// Simulate drawdown phase from a given retirement age to endAge
+function simulateDrawdown(inputs, retirementAge, potAtRetirement) {
+  const years = inputs.endAge - retirementAge;
   const rows = [];
   let pot = potAtRetirement;
   let spending = inputs.annualSpending;
   const currentYear = new Date().getFullYear();
-  const yearsToRetirement = inputs.retirementAge - inputs.currentAge;
+  const yearsToRetirement = retirementAge - inputs.currentAge;
 
   for (let y = 0; y <= years; y++) {
-    const age = inputs.retirementAge + y;
+    const age = retirementAge + y;
 
     if (y > 0) {
       pot = pot * (1 + inputs.growthRate) - spending;
@@ -253,14 +263,13 @@ function simulateDrawdown(inputs, potAtRetirement) {
   return rows;
 }
 
-function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdownContrib, drawdownStop) {
+function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, idealPotAtRetirement, drawdownFromTarget, drawdownFromIdeal) {
   const finalPot = withContrib[withContrib.length - 1].pot;
   const totalContributed = withContrib.reduce((s, r) => s + r.contribution, 0);
 
   let html = '<div class="summary-ages">';
 
   if (stopAge !== null) {
-    const yearsContributing = stopAge - inputs.currentAge;
     html += `
         <div class="summary-age-item">
           <span class="summary-age-label">Stop contributing</span>
@@ -284,9 +293,8 @@ function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdow
     const yearsContributing = stopAge - inputs.currentAge;
     html += `
       <p class="detail">
-        That's ${yearsContributing} more year${yearsContributing !== 1 ? 's' : ''} of contributions.
-        After that, passive growth at ${(inputs.growthRate * 100).toFixed(1)}% will carry
-        your pot to ${fmt(inputs.targetPot)} by age ${inputs.retirementAge}.
+        Stop contributing after ${yearsContributing} year${yearsContributing !== 1 ? 's' : ''} &mdash;
+        passive growth at ${(inputs.growthRate * 100).toFixed(1)}% carries your pot to ${fmt(inputs.targetPot)} by age ${inputs.retirementAge}.
       </p>
     `;
   } else {
@@ -304,8 +312,8 @@ function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdow
   if (idealRetirementAge !== null) {
     html += `
       <p class="detail">
-        Retire at ${idealRetirementAge} and spend ${fmt(inputs.annualSpending)}/year
-        (${(inputs.spendingInflation * 100).toFixed(1)}% inflation) &mdash; your pot hits £0 right at age ${inputs.endAge}.
+        Retire at ${idealRetirementAge}, spend ${fmt(inputs.annualSpending)}/year
+        (${(inputs.spendingInflation * 100).toFixed(1)}% inflation), and your pot hits £0 at age ${inputs.endAge}.
       </p>
     `;
   } else {
@@ -316,95 +324,49 @@ function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdow
     `;
   }
 
-  // Drawdown summaries
-  const spendingNote = `spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%`;
-
-  if (drawdownStop) {
-    html += drawdownSummaryHtml('If you stop contributing', drawdownStop, inputs, spendingNote);
-  }
-  html += drawdownSummaryHtml(
-    drawdownStop ? 'If you keep contributing' : 'Drawdown',
-    drawdownContrib, inputs, spendingNote
-  );
-
   summaryEl.innerHTML = html;
 
   // Stat cards
-  const stopPotAtRetirement = drawdownStop ? drawdownStop[0].pot : null;
-  const depletedStop = drawdownStop ? drawdownStop.find(r => r.depleted) : null;
-  const depletedContrib = drawdownContrib.find(r => r.depleted);
-
-  let cards = `
-    <div class="stat-card" data-color="blue">
-      <div class="stat-label">Pot at Retirement</div>
-      <div class="stat-value">${fmt(finalPot)}</div>
-      <div class="stat-sub">With continuous contributions</div>
-    </div>
-    <div class="stat-card" data-color="violet">
-      <div class="stat-label">Total Contributed</div>
-      <div class="stat-value">${fmt(totalContributed)}</div>
-      <div class="stat-sub">Over ${withContrib.length - 1} years</div>
-    </div>
-  `;
+  let cards = '';
 
   if (stopAge !== null) {
     cards += `
       <div class="stat-card" data-color="emerald">
-        <div class="stat-label">Stop Contributing At</div>
+        <div class="stat-label">Stop Contributing</div>
         <div class="stat-value">Age ${stopAge}</div>
         <div class="stat-sub">${stopAge - inputs.currentAge} years from now</div>
       </div>
     `;
-  } else {
+  }
+
+  if (idealRetirementAge !== null) {
     cards += `
-      <div class="stat-card" data-color="amber">
-        <div class="stat-label">Target Gap</div>
-        <div class="stat-value">${fmt(inputs.targetPot - finalPot)}</div>
-        <div class="stat-sub">Short of target</div>
+      <div class="stat-card" data-color="blue">
+        <div class="stat-label">Ideal Retirement</div>
+        <div class="stat-value">Age ${idealRetirementAge}</div>
+        <div class="stat-sub">${idealRetirementAge - inputs.currentAge} years from now</div>
+      </div>
+      <div class="stat-card" data-color="violet">
+        <div class="stat-label">Pot at Ideal Retirement</div>
+        <div class="stat-value">${fmt(idealPotAtRetirement)}</div>
+        <div class="stat-sub">Lasts exactly to age ${inputs.endAge}</div>
       </div>
     `;
   }
 
-  const lastDrawdown = drawdownContrib[drawdownContrib.length - 1];
-  if (depletedContrib) {
-    cards += `
-      <div class="stat-card" data-color="rose">
-        <div class="stat-label">Pot Runs Out</div>
-        <div class="stat-value">Age ${depletedContrib.age}</div>
-        <div class="stat-sub">With continuous contributions</div>
-      </div>
-    `;
-  } else {
-    cards += `
-      <div class="stat-card" data-color="emerald">
-        <div class="stat-label">Remaining at ${inputs.endAge}</div>
-        <div class="stat-value">${fmt(lastDrawdown.pot)}</div>
-        <div class="stat-sub">Pot still healthy</div>
-      </div>
-    `;
-  }
+  cards += `
+    <div class="stat-card" data-color="amber">
+      <div class="stat-label">Pot at ${inputs.retirementAge} (target)</div>
+      <div class="stat-value">${fmt(finalPot)}</div>
+      <div class="stat-sub">With continuous contributions</div>
+    </div>
+  `;
 
   statCardsEl.innerHTML = cards;
 }
 
-function drawdownSummaryHtml(label, drawdown, inputs, spendingNote) {
-  const depletedRow = drawdown.find(r => r.depleted);
-  if (depletedRow) {
-    return `
-      <p class="detail" style="margin-top: 0.75rem; color: #fca5a5; font-weight: 600;">
-        ${label}: pot runs out at age ${depletedRow.age} (${spendingNote}).
-      </p>
-    `;
-  }
-  const lastRow = drawdown[drawdown.length - 1];
-  return `
-    <p class="detail" style="margin-top: 0.75rem; color: #6ee7b7; font-weight: 600;">
-      ${label}: pot lasts beyond age ${inputs.endAge} &mdash; ${fmt(lastRow.pot)} remaining (${spendingNote}).
-    </p>
-  `;
-}
 
-function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, drawdownStop) {
+function renderChart(inputs, withContrib, stopPath, stopAge, idealAccum, drawdownFromTarget, drawdownFromIdeal, idealRetirementAge) {
   // Build full timeline labels from currentAge to endAge
   const totalYears = inputs.endAge - inputs.currentAge;
   const labels = [];
@@ -413,25 +375,25 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   }
 
   // Helper: merge accumulation and drawdown into full-length array
-  // Accumulation covers indices 0..yearsToRetirement, drawdown covers retirement onward
-  // drawdown[0] is the retirement age (overlaps with last accumulation entry)
-  function fullSeries(accum, drawdown) {
+  function fullSeries(accum, drawdown, retAge) {
     const data = new Array(labels.length).fill(null);
     for (let i = 0; i < accum.length; i++) {
       data[i] = Math.round(accum[i].pot);
     }
-    // drawdown starts at retirement; drawdown[0] overlaps with accum's last entry
-    const retirementIndex = inputs.retirementAge - inputs.currentAge;
+    const retirementIndex = retAge - inputs.currentAge;
     for (let i = 1; i < drawdown.length; i++) {
       data[retirementIndex + i] = Math.round(drawdown[i].pot);
     }
     return data;
   }
 
-  const datasets = [
-    {
-      label: 'With continuous contributions',
-      data: fullSeries(withContrib, drawdownContrib),
+  const datasets = [];
+
+  // Ideal retirement scenario (primary)
+  if (idealAccum && drawdownFromIdeal) {
+    datasets.push({
+      label: `Ideal: retire at ${idealRetirementAge}, £0 at ${inputs.endAge}`,
+      data: fullSeries(idealAccum, drawdownFromIdeal, idealRetirementAge),
       borderColor: '#3b82f6',
       backgroundColor: 'rgba(59, 130, 246, 0.08)',
       fill: true,
@@ -440,28 +402,27 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
       pointRadius: 0,
       pointHoverRadius: 5,
       borderWidth: 2.5,
-    },
-  ];
-
-  if (stopPath && drawdownStop) {
-    datasets.push({
-      label: `Stop contributing at age ${stopAge}`,
-      data: fullSeries(stopPath, drawdownStop),
-      borderColor: '#10b981',
-      backgroundColor: 'rgba(16, 185, 129, 0.06)',
-      fill: true,
-      tension: 0.35,
-      borderDash: [6, 3],
-      spanGaps: true,
-      pointRadius: 0,
-      pointHoverRadius: 5,
-      borderWidth: 2.5,
     });
   }
 
-  // Target line
+  // Target retirement scenario
   datasets.push({
-    label: `Target: ${fmt(inputs.targetPot)}`,
+    label: `Retire at ${inputs.retirementAge} (target)`,
+    data: fullSeries(withContrib, drawdownFromTarget, inputs.retirementAge),
+    borderColor: '#10b981',
+    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+    fill: true,
+    tension: 0.35,
+    borderDash: [6, 3],
+    spanGaps: true,
+    pointRadius: 0,
+    pointHoverRadius: 5,
+    borderWidth: 2.5,
+  });
+
+  // Target pot line
+  datasets.push({
+    label: `Target pot: ${fmt(inputs.targetPot)}`,
     data: labels.map(() => inputs.targetPot),
     borderColor: '#f59e0b',
     borderDash: [6, 4],
@@ -478,17 +439,18 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   const ctx = document.getElementById('chart').getContext('2d');
 
   // Gradient fills
-  const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
-  blueGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
-  blueGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
-  datasets[0].backgroundColor = blueGrad;
-
-  if (stopPath && drawdownStop) {
-    const greenGrad = ctx.createLinearGradient(0, 0, 0, 400);
-    greenGrad.addColorStop(0, 'rgba(16, 185, 129, 0.12)');
-    greenGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
-    datasets[1].backgroundColor = greenGrad;
+  if (idealAccum && drawdownFromIdeal) {
+    const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
+    blueGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
+    blueGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+    datasets[0].backgroundColor = blueGrad;
   }
+
+  const greenIdx = idealAccum && drawdownFromIdeal ? 1 : 0;
+  const greenGrad = ctx.createLinearGradient(0, 0, 0, 400);
+  greenGrad.addColorStop(0, 'rgba(16, 185, 129, 0.12)');
+  greenGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+  datasets[greenIdx].backgroundColor = greenGrad;
 
   chart = new Chart(ctx, {
     type: 'line',
@@ -545,49 +507,59 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   });
 }
 
-function renderTable(inputs, withContrib, stopPath, stopAge, drawdownContrib, drawdownStop) {
+function renderTable(inputs, withContrib, stopPath, stopAge, idealAccum, drawdownFromTarget, drawdownFromIdeal, idealRetirementAge) {
   tableBody.innerHTML = '';
 
-  // Accumulation phase
-  withContrib.forEach((row, i) => {
-    const stopPot = stopPath ? stopPath[i].pot : null;
+  // Build a unified timeline from currentAge to endAge
+  const currentYear = new Date().getFullYear();
+
+  for (let age = inputs.currentAge; age <= inputs.endAge; age++) {
+    const yr = age - inputs.currentAge;
+    const year = currentYear + yr;
     const tr = document.createElement('tr');
 
-    if (stopAge && row.age === stopAge) {
-      tr.classList.add('stop-row');
+    // Highlight rows
+    if (stopAge && age === stopAge) tr.classList.add('stop-row');
+    if (age === inputs.retirementAge) tr.classList.add('retirement-row');
+    if (idealRetirementAge && age === idealRetirementAge) tr.classList.add('retirement-row');
+
+    // Target scenario: accumulation then drawdown
+    let targetPot = '-';
+    let contribution = '-';
+    let spending = '-';
+
+    if (yr < withContrib.length) {
+      targetPot = fmt(withContrib[yr].pot);
+      contribution = fmt(withContrib[yr].contribution);
     }
-    if (row.age === inputs.retirementAge) {
-      tr.classList.add('retirement-row');
+    const drawdownTargetIdx = age - inputs.retirementAge;
+    if (drawdownTargetIdx > 0 && drawdownTargetIdx < drawdownFromTarget.length) {
+      targetPot = fmt(drawdownFromTarget[drawdownTargetIdx].pot);
+      spending = fmt(drawdownFromTarget[drawdownTargetIdx].spending);
+      contribution = '-';
+      if (drawdownFromTarget[drawdownTargetIdx].depleted) tr.classList.add('depleted-row');
+    }
+
+    // Ideal scenario
+    let idealPot = '-';
+    if (idealAccum && idealRetirementAge) {
+      const idealYr = age - inputs.currentAge;
+      if (idealYr < idealAccum.length) {
+        idealPot = fmt(idealAccum[idealYr].pot);
+      }
+      const drawdownIdealIdx = age - idealRetirementAge;
+      if (drawdownFromIdeal && drawdownIdealIdx > 0 && drawdownIdealIdx < drawdownFromIdeal.length) {
+        idealPot = fmt(drawdownFromIdeal[drawdownIdealIdx].pot);
+      }
     }
 
     tr.innerHTML = `
-      <td>${row.age}</td>
-      <td>${row.year}</td>
-      <td>${fmt(row.pot)}</td>
-      <td>${stopPot !== null ? fmt(stopPot) : '-'}</td>
-      <td>${fmt(row.contribution)}</td>
-      <td>-</td>
-    `;
-    tableBody.appendChild(tr);
-  });
-
-  // Drawdown phase (skip index 0 which is the retirement age, already shown above)
-  for (let i = 1; i < drawdownContrib.length; i++) {
-    const row = drawdownContrib[i];
-    const stopRow = drawdownStop ? drawdownStop[i] : null;
-    const tr = document.createElement('tr');
-
-    if (row.depleted) {
-      tr.classList.add('depleted-row');
-    }
-
-    tr.innerHTML = `
-      <td>${row.age}</td>
-      <td>${row.year}</td>
-      <td>${fmt(row.pot)}</td>
-      <td>${stopRow ? fmt(stopRow.pot) : '-'}</td>
-      <td>-</td>
-      <td>${fmt(row.spending)}</td>
+      <td>${age}</td>
+      <td>${year}</td>
+      <td>${targetPot}</td>
+      <td>${idealPot}</td>
+      <td>${contribution}</td>
+      <td>${spending}</td>
     `;
     tableBody.appendChild(tr);
   }
