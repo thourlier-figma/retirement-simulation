@@ -1,6 +1,7 @@
 const form = document.getElementById('pension-form');
 const resultsEl = document.getElementById('results');
 const summaryEl = document.getElementById('results-summary');
+const statCardsEl = document.getElementById('stat-cards');
 const tableBody = document.querySelector('#results-table tbody');
 let chart = null;
 
@@ -37,6 +38,7 @@ loadSettings();
 for (const id of INPUT_IDS) {
   document.getElementById(id).addEventListener('input', saveSettings);
 }
+runSimulation();
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -92,15 +94,26 @@ function runSimulation() {
     ? simulateStopAt(inputs, yearsToRetirement, stopAge)
     : null;
 
-  // Simulate drawdown phase (retirement to end age)
-  const drawdownFromContrib = simulateDrawdown(inputs, withContrib[withContrib.length - 1].pot);
-  const drawdownFromStop = stopPath
-    ? simulateDrawdown(inputs, stopPath[stopPath.length - 1].pot)
+  // Find earliest age to stop contributing so pot sustains burn rate until endAge
+  const stopAgeBurn = findStopAgeBurnRate(inputs, yearsToRetirement);
+
+  // Simulate the "stop at stopAgeBurn" path for charting
+  const stopPathBurn = stopAgeBurn !== null
+    ? simulateStopAt(inputs, yearsToRetirement, stopAgeBurn)
     : null;
 
-  renderSummary(inputs, withContrib, stopAge, drawdownFromContrib, drawdownFromStop);
-  renderChart(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
-  renderTable(inputs, withContrib, stopPath, stopAge, drawdownFromContrib, drawdownFromStop);
+  // Simulate drawdown phase (retirement to end age)
+  const drawdownFromContrib = simulateDrawdown(inputs, inputs.retirementAge, withContrib[withContrib.length - 1].pot);
+  const drawdownFromStop = stopPath
+    ? simulateDrawdown(inputs, inputs.retirementAge, stopPath[stopPath.length - 1].pot)
+    : null;
+  const drawdownFromStopBurn = stopPathBurn
+    ? simulateDrawdown(inputs, inputs.retirementAge, stopPathBurn[stopPathBurn.length - 1].pot)
+    : null;
+
+  renderSummary(inputs, withContrib, stopAge, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn);
+  renderChart(inputs, withContrib, stopPath, stopAge, stopPathBurn, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn);
+  renderTable(inputs, withContrib, stopPath, stopPathBurn, stopAge, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn);
   resultsEl.classList.remove('hidden');
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -147,6 +160,34 @@ function findStopAge(inputs, yearsToRetirement) {
   return null; // Can't reach target even with contributions the whole way
 }
 
+// Find earliest age to stop contributing so pot sustains burn rate through endAge.
+// Contributions continue until stopYear, then pot grows passively to retirement,
+// then drawdown begins.
+function findStopAgeBurnRate(inputs, yearsToRetirement) {
+  for (let stopYear = 0; stopYear <= yearsToRetirement; stopYear++) {
+    const potAtStop = getPotAtYear(inputs, stopYear);
+    const remainingToRetirement = yearsToRetirement - stopYear;
+    const potAtRetirement = potAtStop * Math.pow(1 + inputs.growthRate, remainingToRetirement);
+
+    // Simulate drawdown from retirement to endAge
+    let pot = potAtRetirement;
+    let spending = inputs.annualSpending;
+    let survives = true;
+
+    for (let y = 1; y <= inputs.endAge - inputs.retirementAge; y++) {
+      pot = pot * (1 + inputs.growthRate) - spending;
+      spending = spending * (1 + inputs.spendingInflation);
+      if (pot <= 0) {
+        survives = false;
+        break;
+      }
+    }
+
+    if (survives) return inputs.currentAge + stopYear;
+  }
+  return null;
+}
+
 // Get pot value at a given year offset (with contributions up to that point)
 function getPotAtYear(inputs, targetYear) {
   let pot = inputs.currentPot;
@@ -190,17 +231,17 @@ function simulateStopAt(inputs, years, stopAge) {
   return rows;
 }
 
-// Simulate drawdown phase from retirement to endAge
-function simulateDrawdown(inputs, potAtRetirement) {
-  const years = inputs.endAge - inputs.retirementAge;
+// Simulate drawdown phase from a given retirement age to endAge
+function simulateDrawdown(inputs, retirementAge, potAtRetirement) {
+  const years = inputs.endAge - retirementAge;
   const rows = [];
   let pot = potAtRetirement;
   let spending = inputs.annualSpending;
   const currentYear = new Date().getFullYear();
-  const yearsToRetirement = inputs.retirementAge - inputs.currentAge;
+  const yearsToRetirement = retirementAge - inputs.currentAge;
 
   for (let y = 0; y <= years; y++) {
-    const age = inputs.retirementAge + y;
+    const age = retirementAge + y;
 
     if (y > 0) {
       pot = pot * (1 + inputs.growthRate) - spending;
@@ -220,22 +261,38 @@ function simulateDrawdown(inputs, potAtRetirement) {
   return rows;
 }
 
-function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownStop) {
+function renderSummary(inputs, withContrib, stopAge, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn) {
   const finalPot = withContrib[withContrib.length - 1].pot;
   const totalContributed = withContrib.reduce((s, r) => s + r.contribution, 0);
 
-  let html = '';
+  let html = '<div class="summary-ages">';
+
+  if (stopAge !== null) {
+    html += `
+        <div class="summary-age-item">
+          <span class="summary-age-label">Stop for target pot</span>
+          <span class="stop-age-highlight">${stopAge}</span>
+        </div>
+    `;
+  }
+
+  if (stopAgeBurn !== null) {
+    html += `
+        <div class="summary-age-item">
+          <span class="summary-age-label">Stop for burn rate</span>
+          <span class="stop-age-highlight burn">${stopAgeBurn}</span>
+        </div>
+    `;
+  }
+
+  html += '</div>';
 
   if (stopAge !== null) {
     const yearsContributing = stopAge - inputs.currentAge;
     html += `
-      <p class="headline success">
-        You can stop contributing at age <span class="stop-age-highlight">${stopAge}</span>
-      </p>
       <p class="detail">
-        That's ${yearsContributing} more year${yearsContributing !== 1 ? 's' : ''} of contributions.
-        After that, passive growth at ${(inputs.growthRate * 100).toFixed(1)}% will carry
-        your pot to ${fmt(inputs.targetPot)} by age ${inputs.retirementAge}.
+        Stop at ${stopAge} to reach ${fmt(inputs.targetPot)} by retirement at ${inputs.retirementAge}
+        (${yearsContributing} year${yearsContributing !== 1 ? 's' : ''} of contributions, then ${(inputs.growthRate * 100).toFixed(1)}% passive growth).
       </p>
     `;
   } else {
@@ -245,52 +302,79 @@ function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownSt
       </p>
       <p class="detail">
         With current inputs, your pot would reach ${fmt(finalPot)} at retirement.
-        Consider increasing contributions, adjusting your target, or pushing retirement age back.
       </p>
     `;
   }
 
-  html += `
-    <p class="detail">
-      Pot at retirement (with contributions throughout): <strong>${fmt(finalPot)}</strong>
-      &nbsp;|&nbsp; Total contributed: <strong>${fmt(totalContributed)}</strong>
-    </p>
-  `;
-
-  // Drawdown summaries
-  const spendingNote = `spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%`;
-
-  // Show stop-contributing drawdown first (the recommended plan) if available
-  if (drawdownStop) {
-    html += drawdownSummaryHtml('If you stop contributing', drawdownStop, inputs, spendingNote);
+  if (stopAgeBurn !== null) {
+    const yearsBurn = stopAgeBurn - inputs.currentAge;
+    html += `
+      <p class="detail">
+        Stop at ${stopAgeBurn} to sustain ${fmt(inputs.annualSpending)}/year
+        (${(inputs.spendingInflation * 100).toFixed(1)}% inflation) from ${inputs.retirementAge} through age ${inputs.endAge}
+        (${yearsBurn} year${yearsBurn !== 1 ? 's' : ''} of contributions).
+      </p>
+    `;
+  } else {
+    html += `
+      <p class="detail" style="color: #fca5a5;">
+        Even contributing until retirement, your pot can't sustain ${fmt(inputs.annualSpending)}/year through age ${inputs.endAge}.
+      </p>
+    `;
   }
-  // Then show continuous-contributions drawdown
-  html += drawdownSummaryHtml(
-    drawdownStop ? 'If you keep contributing' : 'Drawdown',
-    drawdownContrib, inputs, spendingNote
-  );
 
   summaryEl.innerHTML = html;
-}
 
-function drawdownSummaryHtml(label, drawdown, inputs, spendingNote) {
-  const depletedRow = drawdown.find(r => r.depleted);
-  if (depletedRow) {
-    return `
-      <p class="detail" style="margin-top: 0.75rem; color: #c45500; font-weight: 600;">
-        ${label}: pot runs out at age ${depletedRow.age} (${spendingNote}).
-      </p>
+  // Stat cards
+  const depletedContrib = drawdownFromContrib.find(r => r.depleted);
+  let cards = `
+    <div class="stat-card" data-color="blue">
+      <div class="stat-label">Pot at Retirement</div>
+      <div class="stat-value">${fmt(finalPot)}</div>
+      <div class="stat-sub">With continuous contributions</div>
+    </div>
+    <div class="stat-card" data-color="violet">
+      <div class="stat-label">Total Contributed</div>
+      <div class="stat-value">${fmt(totalContributed)}</div>
+      <div class="stat-sub">Over ${withContrib.length - 1} years</div>
+    </div>
+  `;
+
+  if (stopAge !== null) {
+    cards += `
+      <div class="stat-card" data-color="emerald">
+        <div class="stat-label">Stop for Target Pot</div>
+        <div class="stat-value">Age ${stopAge}</div>
+        <div class="stat-sub">${stopAge - inputs.currentAge} years from now</div>
+      </div>
     `;
   }
-  const lastRow = drawdown[drawdown.length - 1];
-  return `
-    <p class="detail" style="margin-top: 0.75rem; color: #1a8917; font-weight: 600;">
-      ${label}: pot lasts beyond age ${inputs.endAge} &mdash; ${fmt(lastRow.pot)} remaining (${spendingNote}).
-    </p>
-  `;
+
+  if (stopAgeBurn !== null) {
+    cards += `
+      <div class="stat-card" data-color="amber">
+        <div class="stat-label">Stop for Burn Rate</div>
+        <div class="stat-value">Age ${stopAgeBurn}</div>
+        <div class="stat-sub">${stopAgeBurn - inputs.currentAge} years from now</div>
+      </div>
+    `;
+  }
+
+  if (depletedContrib) {
+    cards += `
+      <div class="stat-card" data-color="rose">
+        <div class="stat-label">Pot Runs Out (full contrib)</div>
+        <div class="stat-value">Age ${depletedContrib.age}</div>
+        <div class="stat-sub">Spending ${fmt(inputs.annualSpending)}/yr</div>
+      </div>
+    `;
+  }
+
+  statCardsEl.innerHTML = cards;
 }
 
-function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, drawdownStop) {
+
+function renderChart(inputs, withContrib, stopPath, stopAge, stopPathBurn, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn) {
   // Build full timeline labels from currentAge to endAge
   const totalYears = inputs.endAge - inputs.currentAge;
   const labels = [];
@@ -299,14 +383,11 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   }
 
   // Helper: merge accumulation and drawdown into full-length array
-  // Accumulation covers indices 0..yearsToRetirement, drawdown covers retirement onward
-  // drawdown[0] is the retirement age (overlaps with last accumulation entry)
   function fullSeries(accum, drawdown) {
     const data = new Array(labels.length).fill(null);
     for (let i = 0; i < accum.length; i++) {
       data[i] = Math.round(accum[i].pot);
     }
-    // drawdown starts at retirement; drawdown[0] overlaps with accum's last entry
     const retirementIndex = inputs.retirementAge - inputs.currentAge;
     for (let i = 1; i < drawdown.length; i++) {
       data[retirementIndex + i] = Math.round(drawdown[i].pot);
@@ -317,36 +398,59 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   const datasets = [
     {
       label: 'With continuous contributions',
-      data: fullSeries(withContrib, drawdownContrib),
-      borderColor: '#0071e3',
-      backgroundColor: 'rgba(0, 113, 227, 0.08)',
+      data: fullSeries(withContrib, drawdownFromContrib),
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59, 130, 246, 0.08)',
       fill: true,
-      tension: 0.3,
+      tension: 0.35,
       spanGaps: true,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
     },
   ];
 
-  if (stopPath && drawdownStop) {
+  if (stopPath && drawdownFromStop) {
     datasets.push({
-      label: `Stop contributing at age ${stopAge}`,
-      data: fullSeries(stopPath, drawdownStop),
-      borderColor: '#1a8917',
-      backgroundColor: 'rgba(26, 137, 23, 0.08)',
+      label: `Stop at ${stopAge} (target pot)`,
+      data: fullSeries(stopPath, drawdownFromStop),
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.06)',
       fill: true,
-      tension: 0.3,
+      tension: 0.35,
       borderDash: [6, 3],
       spanGaps: true,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
     });
   }
 
-  // Target line
+  if (stopPathBurn && drawdownFromStopBurn && stopAgeBurn !== stopAge) {
+    datasets.push({
+      label: `Stop at ${stopAgeBurn} (burn rate)`,
+      data: fullSeries(stopPathBurn, drawdownFromStopBurn),
+      borderColor: '#8b5cf6',
+      backgroundColor: 'rgba(139, 92, 246, 0.06)',
+      fill: true,
+      tension: 0.35,
+      borderDash: [3, 3],
+      spanGaps: true,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
+    });
+  }
+
+  // Target pot line
   datasets.push({
     label: `Target: ${fmt(inputs.targetPot)}`,
     data: labels.map(() => inputs.targetPot),
-    borderColor: '#c45500',
-    borderDash: [4, 4],
+    borderColor: '#f59e0b',
+    borderDash: [6, 4],
     borderWidth: 1.5,
     pointRadius: 0,
+    pointHoverRadius: 0,
     fill: false,
   });
 
@@ -355,34 +459,69 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   }
 
   const ctx = document.getElementById('chart').getContext('2d');
+
+  // Gradient fills
+  const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
+  blueGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
+  blueGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+  datasets[0].backgroundColor = blueGrad;
+
   chart = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
     options: {
       responsive: true,
+      maintainAspectRatio: true,
       interaction: {
         intersect: false,
         mode: 'index',
       },
       plugins: {
+        legend: {
+          labels: {
+            usePointStyle: true,
+            pointStyle: 'line',
+            padding: 20,
+            font: { size: 12 },
+          },
+        },
         tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          titleFont: { size: 13, weight: '600' },
+          bodyFont: { size: 12 },
+          padding: 12,
+          cornerRadius: 8,
           callbacks: {
             label: (ctx) => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` : null,
           },
         },
       },
       scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 12,
+            font: { size: 11 },
+            color: '#9ca3af',
+          },
+          grid: { display: false },
+        },
         y: {
           ticks: {
             callback: (v) => fmt(v),
+            font: { size: 11 },
+            color: '#9ca3af',
           },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+          },
+          border: { display: false },
         },
       },
     },
   });
 }
 
-function renderTable(inputs, withContrib, stopPath, stopAge, drawdownContrib, drawdownStop) {
+function renderTable(inputs, withContrib, stopPath, stopPathBurn, stopAge, stopAgeBurn, drawdownFromContrib, drawdownFromStop, drawdownFromStopBurn) {
   tableBody.innerHTML = '';
 
   // Accumulation phase
@@ -390,12 +529,9 @@ function renderTable(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
     const stopPot = stopPath ? stopPath[i].pot : null;
     const tr = document.createElement('tr');
 
-    if (stopAge && row.age === stopAge) {
-      tr.classList.add('stop-row');
-    }
-    if (row.age === inputs.retirementAge) {
-      tr.classList.add('retirement-row');
-    }
+    if (stopAge && row.age === stopAge) tr.classList.add('stop-row');
+    if (stopAgeBurn && row.age === stopAgeBurn) tr.classList.add('stop-row');
+    if (row.age === inputs.retirementAge) tr.classList.add('retirement-row');
 
     tr.innerHTML = `
       <td>${row.age}</td>
@@ -409,14 +545,12 @@ function renderTable(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   });
 
   // Drawdown phase (skip index 0 which is the retirement age, already shown above)
-  for (let i = 1; i < drawdownContrib.length; i++) {
-    const row = drawdownContrib[i];
-    const stopRow = drawdownStop ? drawdownStop[i] : null;
+  for (let i = 1; i < drawdownFromContrib.length; i++) {
+    const row = drawdownFromContrib[i];
+    const stopRow = drawdownFromStop ? drawdownFromStop[i] : null;
     const tr = document.createElement('tr');
 
-    if (row.depleted) {
-      tr.classList.add('depleted-row');
-    }
+    if (row.depleted) tr.classList.add('depleted-row');
 
     tr.innerHTML = `
       <td>${row.age}</td>
