@@ -4,107 +4,183 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>UK Retirement Simulation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>UK Pension Simulation</h1>
-    <p class="subtitle">Find out when you can stop contributing and still hit your target by retirement.</p>
+  <div class="header">
+    <div class="header-glow header-glow--1"></div>
+    <div class="header-glow header-glow--2"></div>
+    <div class="header-glow header-glow--3"></div>
+    <div class="header-inner">
+      <p class="header-badge">Pension Planner</p>
+      <h1>When can you stop<br>contributing?</h1>
+      <p class="subtitle">Model your pension growth, find your stop-contributing age, and see how long your pot will last in retirement.</p>
+    </div>
+  </div>
 
+  <div class="container">
     <form id="pension-form">
       <div class="form-grid">
-        <div class="form-section">
-          <h2>About You</h2>
-          <label>
-            Current Age
-            <input type="number" id="currentAge" value="30" min="18" max="70" required>
-          </label>
-          <label>
-            Target Retirement Age
-            <input type="number" id="retirementAge" value="58" min="40" max="75" required>
-          </label>
+        <div class="form-section" data-accent="blue">
+          <div class="section-header">
+            <span class="section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>
+            <h2>About You</h2>
+          </div>
+          <div class="form-fields">
+            <label>
+              <span class="label-text">Current Age</span>
+              <input type="number" id="currentAge" value="30" min="18" max="70" required>
+            </label>
+            <label>
+              <span class="label-text">Target Retirement Age</span>
+              <input type="number" id="retirementAge" value="58" min="40" max="75" required>
+            </label>
+          </div>
         </div>
 
-        <div class="form-section">
-          <h2>Current Pension</h2>
-          <label>
-            Current Pension Pot (&pound;)
-            <input type="number" id="currentPot" value="50000" min="0" step="1000" required>
-          </label>
-          <label>
-            Annual Salary (&pound;)
-            <input type="number" id="salary" value="60000" min="0" step="1000" required>
-          </label>
-          <label>
-            Your Contribution (% of salary)
-            <input type="number" id="employeeContrib" value="5" min="0" max="100" step="0.5" required>
-          </label>
-          <label>
-            Employer Contribution (% of salary)
-            <input type="number" id="employerContrib" value="3" min="0" max="100" step="0.5" required>
-          </label>
+        <div class="form-section" data-accent="violet">
+          <div class="section-header">
+            <span class="section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 10h20"/></svg>
+            </span>
+            <h2>Current Pension</h2>
+          </div>
+          <div class="form-fields">
+            <label>
+              <span class="label-text">Current Pension Pot</span>
+              <div class="input-with-prefix">
+                <span class="input-prefix">&pound;</span>
+                <input type="number" id="currentPot" value="50000" min="0" step="1000" required>
+              </div>
+            </label>
+            <label>
+              <span class="label-text">Annual Salary</span>
+              <div class="input-with-prefix">
+                <span class="input-prefix">&pound;</span>
+                <input type="number" id="salary" value="60000" min="0" step="1000" required>
+              </div>
+            </label>
+            <label>
+              <span class="label-text">Your Contribution</span>
+              <div class="input-with-suffix">
+                <input type="number" id="employeeContrib" value="5" min="0" max="100" step="0.5" required>
+                <span class="input-suffix">%</span>
+              </div>
+            </label>
+            <label>
+              <span class="label-text">Employer Contribution</span>
+              <div class="input-with-suffix">
+                <input type="number" id="employerContrib" value="3" min="0" max="100" step="0.5" required>
+                <span class="input-suffix">%</span>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <div class="form-section">
-          <h2>Assumptions</h2>
-          <label>
-            Expected Annual Growth (%)
-            <input type="number" id="growthRate" value="5" min="0" max="20" step="0.5" required>
-            <span class="hint">Typical UK pension: 4-7% nominal</span>
-          </label>
-          <label>
-            Annual Salary Increase (%)
-            <input type="number" id="salaryGrowth" value="2" min="0" max="15" step="0.5" required>
-          </label>
-          <label>
-            Target Pension Pot (&pound;)
-            <input type="number" id="targetPot" value="500000" min="0" step="10000" required>
-            <span class="hint">How much you want at retirement</span>
-          </label>
+        <div class="form-section" data-accent="amber">
+          <div class="section-header">
+            <span class="section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+            </span>
+            <h2>Assumptions</h2>
+          </div>
+          <div class="form-fields">
+            <label>
+              <span class="label-text">Expected Annual Growth</span>
+              <div class="input-with-suffix">
+                <input type="number" id="growthRate" value="5" min="0" max="20" step="0.5" required>
+                <span class="input-suffix">%</span>
+              </div>
+              <span class="hint">Typical UK pension: 4-7% nominal</span>
+            </label>
+            <label>
+              <span class="label-text">Annual Salary Increase</span>
+              <div class="input-with-suffix">
+                <input type="number" id="salaryGrowth" value="2" min="0" max="15" step="0.5" required>
+                <span class="input-suffix">%</span>
+              </div>
+            </label>
+            <label>
+              <span class="label-text">Target Pension Pot</span>
+              <div class="input-with-prefix">
+                <span class="input-prefix">&pound;</span>
+                <input type="number" id="targetPot" value="500000" min="0" step="10000" required>
+              </div>
+              <span class="hint">How much you want at retirement</span>
+            </label>
+          </div>
         </div>
 
-        <div class="form-section">
-          <h2>Retirement Spending</h2>
-          <label>
-            Annual Spending in Retirement (&pound;)
-            <input type="number" id="annualSpending" value="25000" min="0" step="1000" required>
-            <span class="hint">How much you plan to withdraw per year</span>
-          </label>
-          <label>
-            Spending Inflation (%)
-            <input type="number" id="spendingInflation" value="2" min="0" max="15" step="0.5" required>
-            <span class="hint">Annual increase in spending costs</span>
-          </label>
-          <label>
-            Simulate Until Age
-            <input type="number" id="endAge" value="90" min="60" max="110" required>
-          </label>
+        <div class="form-section" data-accent="emerald">
+          <div class="section-header">
+            <span class="section-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8l-4 4-4-4"/><path d="M12 16V8"/></svg>
+            </span>
+            <h2>Retirement Spending</h2>
+          </div>
+          <div class="form-fields">
+            <label>
+              <span class="label-text">Annual Spending</span>
+              <div class="input-with-prefix">
+                <span class="input-prefix">&pound;</span>
+                <input type="number" id="annualSpending" value="25000" min="0" step="1000" required>
+              </div>
+              <span class="hint">How much you plan to withdraw per year</span>
+            </label>
+            <label>
+              <span class="label-text">Spending Inflation</span>
+              <div class="input-with-suffix">
+                <input type="number" id="spendingInflation" value="2" min="0" max="15" step="0.5" required>
+                <span class="input-suffix">%</span>
+              </div>
+            </label>
+            <label>
+              <span class="label-text">Simulate Until Age</span>
+              <input type="number" id="endAge" value="90" min="60" max="110" required>
+            </label>
+          </div>
         </div>
       </div>
 
-      <button type="submit">Run Simulation</button>
+      <button type="submit">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Run Simulation
+      </button>
     </form>
 
     <div id="results" class="results hidden">
-      <h2>Results</h2>
       <div class="results-summary" id="results-summary"></div>
+      <div id="stat-cards" class="stat-cards"></div>
       <div class="chart-container">
+        <div class="chart-header">
+          <h3>Pension Pot Over Time</h3>
+        </div>
         <canvas id="chart"></canvas>
       </div>
       <div class="table-container">
-        <table id="results-table">
-          <thead>
-            <tr>
-              <th>Age</th>
-              <th>Year</th>
-              <th>Pot (with contributions)</th>
-              <th>Pot (growth only)</th>
-              <th>Annual Contribution</th>
-              <th>Annual Spending</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div class="table-header">
+          <h3>Year-by-Year Breakdown</h3>
+        </div>
+        <div class="table-scroll">
+          <table id="results-table">
+            <thead>
+              <tr>
+                <th>Age</th>
+                <th>Year</th>
+                <th>Pot (with contributions)</th>
+                <th>Pot (growth only)</th>
+                <th>Annual Contribution</th>
+                <th>Annual Spending</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>

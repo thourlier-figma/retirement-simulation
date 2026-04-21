@@ -1,6 +1,7 @@
 const form = document.getElementById('pension-form');
 const resultsEl = document.getElementById('results');
 const summaryEl = document.getElementById('results-summary');
+const statCardsEl = document.getElementById('stat-cards');
 const tableBody = document.querySelector('#results-table tbody');
 let chart = null;
 
@@ -37,6 +38,7 @@ loadSettings();
 for (const id of INPUT_IDS) {
   document.getElementById(id).addEventListener('input', saveSettings);
 }
+runSimulation();
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -250,41 +252,89 @@ function renderSummary(inputs, withContrib, stopAge, drawdownContrib, drawdownSt
     `;
   }
 
-  html += `
-    <p class="detail">
-      Pot at retirement (with contributions throughout): <strong>${fmt(finalPot)}</strong>
-      &nbsp;|&nbsp; Total contributed: <strong>${fmt(totalContributed)}</strong>
-    </p>
-  `;
-
   // Drawdown summaries
   const spendingNote = `spending ${fmt(inputs.annualSpending)}/year, inflating at ${(inputs.spendingInflation * 100).toFixed(1)}%`;
 
-  // Show stop-contributing drawdown first (the recommended plan) if available
   if (drawdownStop) {
     html += drawdownSummaryHtml('If you stop contributing', drawdownStop, inputs, spendingNote);
   }
-  // Then show continuous-contributions drawdown
   html += drawdownSummaryHtml(
     drawdownStop ? 'If you keep contributing' : 'Drawdown',
     drawdownContrib, inputs, spendingNote
   );
 
   summaryEl.innerHTML = html;
+
+  // Stat cards
+  const stopPotAtRetirement = drawdownStop ? drawdownStop[0].pot : null;
+  const depletedStop = drawdownStop ? drawdownStop.find(r => r.depleted) : null;
+  const depletedContrib = drawdownContrib.find(r => r.depleted);
+
+  let cards = `
+    <div class="stat-card" data-color="blue">
+      <div class="stat-label">Pot at Retirement</div>
+      <div class="stat-value">${fmt(finalPot)}</div>
+      <div class="stat-sub">With continuous contributions</div>
+    </div>
+    <div class="stat-card" data-color="violet">
+      <div class="stat-label">Total Contributed</div>
+      <div class="stat-value">${fmt(totalContributed)}</div>
+      <div class="stat-sub">Over ${withContrib.length - 1} years</div>
+    </div>
+  `;
+
+  if (stopAge !== null) {
+    cards += `
+      <div class="stat-card" data-color="emerald">
+        <div class="stat-label">Stop Contributing At</div>
+        <div class="stat-value">Age ${stopAge}</div>
+        <div class="stat-sub">${stopAge - inputs.currentAge} years from now</div>
+      </div>
+    `;
+  } else {
+    cards += `
+      <div class="stat-card" data-color="amber">
+        <div class="stat-label">Target Gap</div>
+        <div class="stat-value">${fmt(inputs.targetPot - finalPot)}</div>
+        <div class="stat-sub">Short of target</div>
+      </div>
+    `;
+  }
+
+  const lastDrawdown = drawdownContrib[drawdownContrib.length - 1];
+  if (depletedContrib) {
+    cards += `
+      <div class="stat-card" data-color="rose">
+        <div class="stat-label">Pot Runs Out</div>
+        <div class="stat-value">Age ${depletedContrib.age}</div>
+        <div class="stat-sub">With continuous contributions</div>
+      </div>
+    `;
+  } else {
+    cards += `
+      <div class="stat-card" data-color="emerald">
+        <div class="stat-label">Remaining at ${inputs.endAge}</div>
+        <div class="stat-value">${fmt(lastDrawdown.pot)}</div>
+        <div class="stat-sub">Pot still healthy</div>
+      </div>
+    `;
+  }
+
+  statCardsEl.innerHTML = cards;
 }
 
 function drawdownSummaryHtml(label, drawdown, inputs, spendingNote) {
   const depletedRow = drawdown.find(r => r.depleted);
   if (depletedRow) {
     return `
-      <p class="detail" style="margin-top: 0.75rem; color: #c45500; font-weight: 600;">
+      <p class="detail" style="margin-top: 0.75rem; color: #fca5a5; font-weight: 600;">
         ${label}: pot runs out at age ${depletedRow.age} (${spendingNote}).
       </p>
     `;
   }
   const lastRow = drawdown[drawdown.length - 1];
   return `
-    <p class="detail" style="margin-top: 0.75rem; color: #1a8917; font-weight: 600;">
+    <p class="detail" style="margin-top: 0.75rem; color: #6ee7b7; font-weight: 600;">
       ${label}: pot lasts beyond age ${inputs.endAge} &mdash; ${fmt(lastRow.pot)} remaining (${spendingNote}).
     </p>
   `;
@@ -318,11 +368,14 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
     {
       label: 'With continuous contributions',
       data: fullSeries(withContrib, drawdownContrib),
-      borderColor: '#0071e3',
-      backgroundColor: 'rgba(0, 113, 227, 0.08)',
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59, 130, 246, 0.08)',
       fill: true,
-      tension: 0.3,
+      tension: 0.35,
       spanGaps: true,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
     },
   ];
 
@@ -330,12 +383,15 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
     datasets.push({
       label: `Stop contributing at age ${stopAge}`,
       data: fullSeries(stopPath, drawdownStop),
-      borderColor: '#1a8917',
-      backgroundColor: 'rgba(26, 137, 23, 0.08)',
+      borderColor: '#10b981',
+      backgroundColor: 'rgba(16, 185, 129, 0.06)',
       fill: true,
-      tension: 0.3,
+      tension: 0.35,
       borderDash: [6, 3],
       spanGaps: true,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      borderWidth: 2.5,
     });
   }
 
@@ -343,10 +399,11 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   datasets.push({
     label: `Target: ${fmt(inputs.targetPot)}`,
     data: labels.map(() => inputs.targetPot),
-    borderColor: '#c45500',
-    borderDash: [4, 4],
+    borderColor: '#f59e0b',
+    borderDash: [6, 4],
     borderWidth: 1.5,
     pointRadius: 0,
+    pointHoverRadius: 0,
     fill: false,
   });
 
@@ -355,27 +412,69 @@ function renderChart(inputs, withContrib, stopPath, stopAge, drawdownContrib, dr
   }
 
   const ctx = document.getElementById('chart').getContext('2d');
+
+  // Gradient fills
+  const blueGrad = ctx.createLinearGradient(0, 0, 0, 400);
+  blueGrad.addColorStop(0, 'rgba(59, 130, 246, 0.15)');
+  blueGrad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+  datasets[0].backgroundColor = blueGrad;
+
+  if (stopPath && drawdownStop) {
+    const greenGrad = ctx.createLinearGradient(0, 0, 0, 400);
+    greenGrad.addColorStop(0, 'rgba(16, 185, 129, 0.12)');
+    greenGrad.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+    datasets[1].backgroundColor = greenGrad;
+  }
+
   chart = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets },
     options: {
       responsive: true,
+      maintainAspectRatio: true,
       interaction: {
         intersect: false,
         mode: 'index',
       },
       plugins: {
+        legend: {
+          labels: {
+            usePointStyle: true,
+            pointStyle: 'line',
+            padding: 20,
+            font: { size: 12 },
+          },
+        },
         tooltip: {
+          backgroundColor: 'rgba(15, 23, 42, 0.9)',
+          titleFont: { size: 13, weight: '600' },
+          bodyFont: { size: 12 },
+          padding: 12,
+          cornerRadius: 8,
           callbacks: {
             label: (ctx) => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` : null,
           },
         },
       },
       scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 12,
+            font: { size: 11 },
+            color: '#9ca3af',
+          },
+          grid: { display: false },
+        },
         y: {
           ticks: {
             callback: (v) => fmt(v),
+            font: { size: 11 },
+            color: '#9ca3af',
           },
+          grid: {
+            color: 'rgba(0, 0, 0, 0.04)',
+          },
+          border: { display: false },
         },
       },
     },
