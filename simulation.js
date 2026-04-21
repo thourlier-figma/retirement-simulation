@@ -152,9 +152,10 @@ function findStopAge(inputs, yearsToRetirement) {
   return null; // Can't reach target even with contributions the whole way
 }
 
-// Find earliest retirement age where the pot lasts until endAge given burn rate
+// Find earliest retirement age where the pot just runs out at endAge (£0 at death)
 function findIdealRetirementAge(inputs) {
-  // Try each possible retirement age from current age + 1 up to endAge - 1
+  // Try each possible retirement age from earliest to latest
+  // Find the earliest age where the pot reaches 0 at or after endAge
   for (let retAge = inputs.currentAge + 1; retAge < inputs.endAge; retAge++) {
     const yearsContributing = retAge - inputs.currentAge;
     const potAtRetirement = getPotAtYear(inputs, yearsContributing);
@@ -162,18 +163,19 @@ function findIdealRetirementAge(inputs) {
     // Simulate drawdown from this retirement age to endAge
     let pot = potAtRetirement;
     let spending = inputs.annualSpending;
-    let survives = true;
+    let runsOutBeforeEnd = false;
 
     for (let y = 1; y <= inputs.endAge - retAge; y++) {
       pot = pot * (1 + inputs.growthRate) - spending;
       spending = spending * (1 + inputs.spendingInflation);
       if (pot <= 0) {
-        survives = false;
+        runsOutBeforeEnd = true;
         break;
       }
     }
 
-    if (survives) return retAge;
+    // Pot lasted exactly to endAge (or just past it) — this is the ideal age
+    if (!runsOutBeforeEnd) return retAge;
   }
   return null;
 }
@@ -302,8 +304,8 @@ function renderSummary(inputs, withContrib, stopAge, idealRetirementAge, drawdow
   if (idealRetirementAge !== null) {
     html += `
       <p class="detail">
-        If you keep contributing until age ${idealRetirementAge}, your pot will sustain
-        ${fmt(inputs.annualSpending)}/year (with ${(inputs.spendingInflation * 100).toFixed(1)}% inflation) through age ${inputs.endAge}.
+        Retire at ${idealRetirementAge} and spend ${fmt(inputs.annualSpending)}/year
+        (${(inputs.spendingInflation * 100).toFixed(1)}% inflation) &mdash; your pot hits £0 right at age ${inputs.endAge}.
       </p>
     `;
   } else {
