@@ -311,7 +311,7 @@ button[type="submit"] {
   gap: 0.5rem;
   width: 100%;
   padding: 0.9rem;
-  background: linear-gradient(135deg, var(--slate-900) 0%, #1e3a5f 50%, var(--slate-900) 100%);
+  background: linear-gradient(135deg, var(--slate-900) 0%, #3d2b1f 50%, var(--slate-900) 100%);
   color: #fff;
   border: none;
   border-radius: 14px;
