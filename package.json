@@ -1,7 +1,7 @@
 {
   "name": "retirement-simulation",
   "version": "1.0.0",
-  "description": "SomethingRandom",
+  "description": "SomethingRandomElse!",
   "main": "simulation.js",
   "scripts": {
     "dev": "vite --port 5555",
