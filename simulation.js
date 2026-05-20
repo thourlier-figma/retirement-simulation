@@ -430,8 +430,8 @@ function renderChart(inputs, withContrib, stopPath, stopAge, stopPathBurn, stopA
     datasets.push({
       label: `Stop at ${stopAgeBurn} (burn rate)`,
       data: fullSeries(stopPathBurn, drawdownFromStopBurn),
-      borderColor: '#8b5cf6',
-      backgroundColor: 'rgba(139, 92, 246, 0.06)',
+      borderColor: '#ec4899',
+      backgroundColor: 'rgba(236, 72, 153, 0.06)',
       fill: true,
       tension: 0.35,
       borderDash: [3, 3],
