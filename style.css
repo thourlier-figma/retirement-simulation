@@ -1,6 +1,6 @@
 :root {
   --blue: #3b82f6;
-  --violet: #8b5cf6;
+  --violet: #ec4899;
   --amber: #f59e0b;
   --emerald: #10b981;
   --rose: #f43f5e;
@@ -66,7 +66,7 @@ body {
   height: 400px;
   bottom: -40%;
   left: 10%;
-  background: rgba(139, 92, 246, 0.15);
+  background: rgba(236, 72, 153, 0.15);
   animation-delay: -4s;
 }
 
@@ -194,7 +194,7 @@ h1 {
 }
 
 [data-accent="blue"] .section-icon    { background: #eff6ff; color: var(--blue); }
-[data-accent="violet"] .section-icon  { background: #f5f3ff; color: var(--violet); }
+[data-accent="violet"] .section-icon  { background: #fdf2f8; color: var(--violet); }
 [data-accent="amber"] .section-icon   { background: #fffbeb; color: var(--amber); }
 [data-accent="emerald"] .section-icon { background: #ecfdf5; color: var(--emerald); }
 
@@ -444,8 +444,8 @@ button[type="submit"] svg {
 }
 
 .stop-age-highlight.burn {
-  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+  background: linear-gradient(135deg, #db2777, #ec4899);
+  box-shadow: 0 2px 8px rgba(236, 72, 153, 0.4);
 }
 
 /* ── Stat cards ───────────────────────────────── */
